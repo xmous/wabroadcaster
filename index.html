@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Whatsapp Broadcaster</title>
+    <style>
+      .client {
+        border: 1px solid #ccc;
+        padding: 20px;
+        box-sizing: border-box;
+        display: inline-block;
+        margin: 10px;
+      }
+      .hide {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <button class="add-client-btn">Scan</button>
+      <div class="client-container">
+        <div class="client hide">
+          <h3 class="title"></h3>
+          <p class="description"></p>
+          <img src="" alt="QR Code" id="qrcode" />
+          <h3>Logs:</h3>
+          <ul class="logs"></ul>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+    <script>
+      $(document).ready(function () {
+        var socket = io();
+
+        // Ketika button tambah diklik
+        $(".add-client-btn").click(function () {
+          var today = new Date();
+          var date =
+            today.getFullYear().toString() +
+            (today.getMonth() + 1).toString() +
+            today.getDate().toString() +
+            today.getHours().toString() +
+            today.getMinutes().toString() +
+            today.getSeconds().toString();
+          //  console.log(date);
+          var clientId = getUrlVars("id_user") + "_" + date;
+          var clientDescription = getUrlVars("id_user");
+          var template = $(".client")
+            .first()
+            .clone()
+            .removeClass("hide")
+            .addClass(clientId);
+          template.find(".title").html(clientId);
+          template.find(".description").html(clientDescription);
+          $(".add-client-btn").addClass("hide");
+          $(".client-container").append(template);
+
+          var cek = socket.emit("create-session", {
+            id: clientId,
+            description: clientDescription,
+          });
+          console.log(cek);
+        });
+
+        socket.on("init", function (data) {
+          $(".client-container .client").not(":first").remove();
+          console.log(data);
+          var tes = getUrlVars("id_user");
+          for (var i = 0; i < data.length; i++) {
+            var session = data[i];
+            var clientId = session.id;
+            var clientDescription = session.description;
+            if (tes == clientDescription) {
+              var template = $(".client")
+                .first()
+                .clone()
+                .removeClass("hide")
+                .addClass(clientId);
+              template.find(".title").html(clientId);
+              template.find(".description").html(clientDescription);
+              $(".add-client-btn").addClass("hide");
+              $(".client-container").append(template);
+
+              if (session.ready) {
+                $(`.client.${session.id} .logs`).append(
+                  $("<li>").text("Whatsapp is ready!")
+                );
+              } else {
+                $(`.client.${session.id} .logs`).append(
+                  $("<li>").text("Connecting...")
+                );
+              }
+            }
+          }
+        });
+
+        socket.on("remove-session", function (id) {
+          $(`.client.${id}`).remove();
+        });
+
+        socket.on("message", function (data) {
+          $(`.client.${data.id} .logs`).append($("<li>").text(data.text));
+        });
+
+        socket.on("qr", function (data) {
+          $(`.client.${data.id} #qrcode`).attr("src", data.src);
+          $(`.client.${data.id} #qrcode`).show();
+        });
+
+        socket.on("ready", function (data) {
+          $(`.client.${data.id} #qrcode`).hide();
+        });
+
+        socket.on("authenticated", function (data) {
+          $(`.client.${data.id} #qrcode`).hide();
+        });
+      });
+
+      function getUrlVars(param = null) {
+        if (param !== null) {
+          var vars = [],
+            hash;
+          var hashes = window.location.href
+            .slice(window.location.href.indexOf("?") + 1)
+            .split("&");
+          for (var i = 0; i < hashes.length; i++) {
+            hash = hashes[i].split("=");
+            vars.push(hash[0]);
+            vars[hash[0]] = hash[1];
+          }
+          return vars[param];
+        } else {
+          return null;
+        }
+      }
+    </script>
+  </body>
+</html>
